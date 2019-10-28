@@ -1,0 +1,21 @@
+{% extends "layout.html" %}
+{% block title %}
+Spell Check
+{% endblock %}
+{% block content %}
+    <h4>Spell Check</h4>
+    <br>
+    {% from "_formhelpers.html" import render_field %}
+    <form method=post action="/spell_check">
+        {{ form.csrf_token }}
+        <dl>
+            {{render_field(form.inputtext)}}
+        </dl>
+        <p><input type=submit value=Submit></p>
+    </form>
+    <div>
+    {% if error %}
+        <p class="error"><strong>Error:</strong>{{error}}</p>
+    {% endif %}
+
+{% endblock %}

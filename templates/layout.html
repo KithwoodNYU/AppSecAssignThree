@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <title>{% block title %}{% endblock %}</title>
+        <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='site.css')}}" />
+    </head>
+
+    <body>
+        <div class="navbar">
+            <img class="logo" src="/static/images/spellbee.png"></img>
+            <div class="brand-title"><h1>kSpell - One Honey of a Spell Checker</h1></div>
+            <a href="{{ url_for('home') }}" class="navbar-brand">Home</a>
+            <a href="{{ url_for('register') }}" class="navbar-item">Register</a>
+            <a href="{{ url_for('about') }}" class="navbar-item">About</a>
+        </div>
+        <div class='message-content'>
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <ul class='flashes'>
+                    {% for category, message in messages %}
+                        <li id='{{ category }}'>{{ message }}</li>
+                    {% endfor %}
+                    </ul>
+                {% endif %}
+            {% endwith %}
+        </div>
+        <div class='body-content'>
+            {% block content %}
+            {% endblock %}
+            <hr/>
+        </div>
+        <footer>
+            <p>© 2019</p>
+        </footer>
+    </body>
+</html>

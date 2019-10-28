@@ -1,0 +1,23 @@
+{% extends "layout.html" %}
+{% block title %}
+Login
+{% endblock %}
+{% block content %}
+    <h4>Login</h4>
+    <br>
+    {% from "_formhelpers.html" import render_field %}
+    <form method=post action="/login">
+        {{ form.csrf_token }}
+        <dl>
+            {{render_field(form.username)}}
+            {{render_field(form.password)}}
+            {{render_field(form.phone2fa)}}
+        </dl>
+        <p><input type=submit value=Login></p>
+    </form>
+    <div>
+    {% if error %}
+        <p class="error"><strong>Error:</strong>{{error}}</p>
+    {% endif %}
+
+{% endblock %}
