@@ -2,20 +2,32 @@ from flask import Flask, render_template, redirect, url_for, session, flash, req
 from flask_session import Session
 from flask_wtf import FlaskForm, CSRFProtect
 from wtforms import StringField, PasswordField, validators
+from sqlalchemy import create_engine, Column, Integer, ForeignKey, String, DateTime
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship, sessionmaker
+from hashlib import sha256
+from secrets import token_hex
+from datetime import datetime
+
 import re
 import os
 import subprocess
 from datetime import datetime
 from . import app_forms
 from . import create_app
+from . import setup_db
+from . import db_classes
+
 
 app = create_app()
+DBSessionMaker = setup_db()
+dbsession = DBSessionMaker()
+
 SECRET_KEY = os.urandom(32)
 csrf = CSRFProtect(app)
 Session(app)
 
-registration_info = []
-logged_in_user = []
+app_user = []
 
 validate_success = 1
 validate_login = 0
@@ -38,9 +50,7 @@ headers = {"Content-Security-Policy":"default-src 'self'",
 
 @app.route('/')
 def home():
-    if len(registration_info) == 0:
-        return redirect('/register'), 302, headers
-    elif len(logged_in_user) == 0:
+    if len(app_user) == 0:
         return redirect(url_for('login')), 302, headers
     else:
         return redirect(url_for('spell_check')), 302, headers
@@ -71,15 +81,27 @@ def register():
 
         if request.method == 'POST':
             if form.validate_on_submit():
-                user = {}
-                user['username'] = form.username.data
-                user['password'] = form.password.data
-                user['twofactor'] = form.phone2fa.data
-                registration_info.append(user)
-                flash('Registration was a success', 'success')
-                return redirect(url_for('login')), 302, headers
+
+                name = form.username.data
+                user_r = dbsession.query(db_classes.User).filter(db_classes.User.uname == name).first()
+                if user_r:
+                    flash('Username already registered', 'success')
+                else:
+                    password = form.password.data
+                    phone2fa = form.phone2fa.data
+                    hasher = sha256()
+                    hasher.update(password.encode('utf-8'))
+                    salt = token_hex(nbytes=16)
+                    hasher.update(salt.encode('utf-8'))
+                    pword_store = hasher.hexdigest()
+                    user = db_classes.User(uname=name, pword=pword_store, phone2fa=phone2fa, salt=salt)
+                    dbsession.add(user)
+                    dbsession.commit()
+                    flash('Registration was a success', 'success')
+                    return redirect(url_for('login')), 302, headers
             else:
-                flash('Registration was a faulure', 'success')
+                flash('Registration was a failure', 'success')
+
         r = CreateResponse(render_template('register.html', form=form))
         
         return r
@@ -96,14 +118,18 @@ def login():
         form = app_forms.LoginForm(request.form)
 
         if request.method == 'POST' and form.validate_on_submit():
-            logged_in_user.clear()
-            user = {}
-            user['username'] = form.username.data
-            user['password'] = form.password.data
-            user['twofactor'] = form.phone2fa.data
-            validation = validate_user(user)
+            app_user.clear()
+            name = form.username.data
+            pword = form.password.data
+            phone2fa = form.phone2fa.data
+
+            validation, user_r = validate_user(name, pword, phone2fa)
+
             if validation == validate_success:
-                logged_in_user.append(user)
+                app_user.append(user_r)
+                history_record = db_classes.LoginRecord(user_id = user_r.id, last_login=datetime.now())
+                dbsession.add(history_record)
+                dbsession.commit()
                 flash('Login was a success', 'result')
             elif validation == validate_login:
                 flash('Incorrect username or password', 'result')
@@ -112,36 +138,32 @@ def login():
 
             return redirect(url_for('spell_check')), 302, headers
     except Exception as e:
-        r = CreateResponse(str(e), 500)
-           
+        r = CreateResponse(str(e), 500)    
         return r
 
     r = CreateResponse(render_template('login.html', form=form))
-     
     return r
 
-def validate_user(user):
-    validation_result = validate_login
-    for registered_user in registration_info:
-        if user['username'] == registered_user['username']:
-            if user['password'] == registered_user['password']:
-                if user['twofactor'] == registered_user['twofactor']:
-                    validation_result = validate_success
-                    return validation_result
-                else:
-                    validation_result = validate_2fa
-            else:
-                validation_result = validate_login
-        else:
-            validation_result = validate_login
+def validate_user(uname, pword, phone2fa):
+    hasher=sha256()
+    user_r = dbsession.query(db_classes.User).filter(db_classes.User.uname == uname).first()
+    if not user_r:
+        return validate_login, None
+    salt = user_r.salt
+    hasher.update(pword.encode('utf-8'))
+    hasher.update(salt.encode('utf-8'))
+    password_hash = hasher.hexdigest()
+    if not password_hash == user_r.pword:
+        return validate_login, None
     
-    return validation_result
+    if not phone2fa == user_r.phone2fa:
+        return validate_2fa, None
+
+    return validate_success, user_r
 
 @app.route('/spell_check', methods=['GET', 'POST'])
 def spell_check():
-    if len(registration_info) == 0:
-        return redirect('/register'), 302, headers
-    elif len(logged_in_user) == 0:
+    if len(app_user) == 0:
         return redirect(url_for('login')), 302, headers
 
     try:
@@ -177,9 +199,7 @@ def spell_check():
 
 @app.route('/sc_results', methods=['GET'])
 def sc_results():
-    if len(registration_info) == 0:
-        return redirect('/register'), 302, headers
-    elif len(logged_in_user) == 0:
+    if len(app_user) == 0:
         return redirect(url_for('login')), 302, headers
 
     try:
