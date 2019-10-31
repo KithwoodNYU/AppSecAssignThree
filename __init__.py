@@ -29,7 +29,7 @@ def setup_db():
 
     BASE.metadata.bind = engine
     #remove following line before autograder submit
-    #BASE.metadata.drop_all(engine)
+    BASE.metadata.drop_all(engine)
     BASE.metadata.create_all(engine)
     DBSessionMaker = sessionmaker(bind=engine)
     create_default_admin(DBSessionMaker)

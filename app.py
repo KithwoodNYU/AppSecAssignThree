@@ -117,7 +117,14 @@ def login():
         form = app_forms.LoginForm(request.form)
 
         if request.method == 'POST' and form.validate_on_submit():
-            app_user.clear()
+            if len(app_user) > 0:
+                history_record = dbsession.query.filter(db_classes.LoginRecord.user_id == app_user[0].user_id).last()
+                if history_record:
+                    history_record.logout_time = datetime.now()
+                    dbsession.update(history_record)
+                    dbsession.commit()
+                app_user.clear()
+
             name = form.username.data
             pword = form.password.data
             phone2fa = form.phone2fa.data
@@ -126,7 +133,7 @@ def login():
 
             if validation == validate_success:
                 app_user.append(user_r)
-                history_record = db_classes.LoginRecord(user_id = user_r.id, last_login=datetime.now())
+                history_record = db_classes.LoginRecord(user_id = user_r.id, login_time=datetime.now())
                 dbsession.add(history_record)
                 dbsession.commit()
                 flash('Login was a success', 'result')

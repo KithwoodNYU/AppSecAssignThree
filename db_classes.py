@@ -15,7 +15,8 @@ class User(BASE):
 class LoginRecord(BASE):
     __tablename__ = 'login_history'
     id = Column(Integer, primary_key=True, autoincrement=True)
-    last_login = Column(DateTime, nullable=False)
+    login_time = Column(DateTime, nullable=False)
+    logout_time = Column(DateTime, nullable=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     user = relationship(User)
 
