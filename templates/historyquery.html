@@ -1,0 +1,28 @@
+{% extends "layout.html" %}
+{% block title %}
+Query Information
+{% endblock %}
+{% block content %}
+<h4>Query Information</h4>
+    <br>
+    {% from "_formhelpers.html" import render_field %}
+    <form >
+        {{ form.csrf_token }}
+        <dl>
+            {{render_field(form.query_id)}}
+        </dl>
+        <dl>
+                {{render_field(form.uname)}}
+        </dl>
+        <dl>
+                {{render_field(form.inputtext)}}
+        </dl>
+        <dl>
+                {{render_field(form.outputtext)}}
+        </dl>
+    </form>
+    <div>
+    {% if error %}
+        <p class="error"><strong>Error:</strong>{{error}}</p>
+    {% endif %}
+{% endblock %}

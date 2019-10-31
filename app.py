@@ -24,6 +24,7 @@ DBSessionMaker = setup_db()
 dbsession = DBSessionMaker()
 
 SECRET_KEY = os.urandom(32)
+
 csrf = CSRFProtect(app)
 Session(app)
 
@@ -112,8 +113,6 @@ def register():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    #if len(registration_info) == 0:
-    #    return redirect('/register')
     try:
         form = app_forms.LoginForm(request.form)
 
@@ -131,12 +130,14 @@ def login():
                 dbsession.add(history_record)
                 dbsession.commit()
                 flash('Login was a success', 'result')
+                return redirect(url_for('spell_check')), 302, headers
             elif validation == validate_login:
                 flash('Incorrect username or password', 'result')
             else:
                 flash('Two-factor authentication failure', 'result')
 
-            return redirect(url_for('spell_check')), 302, headers
+            r = CreateResponse(render_template('login.html', form=form))
+            return r
     except Exception as e:
         r = CreateResponse(str(e), 500)    
         return r
@@ -183,6 +184,12 @@ def spell_check():
             msg = msg.replace('\n', ', ')
             msg = msg.rstrip(', ')
             
+            scresults = db_classes.SpellCheckResults()
+            scresults.input = form.inputtext.data
+            scresults.output = msg
+            scresults.user_id = app_user[0].id
+            dbsession.add(scresults)
+            dbsession.commit()
             sc_form.misspelled.data = msg
             r = CreateResponse(render_template('sc_results.html', form=sc_form))
             
@@ -204,9 +211,6 @@ def sc_results():
 
     try:
         form = app_forms.SpellCheckResultsForm(request.form)
-
-        if request.method == 'POST' and form.validate_on_submit():
-            return redirect(url_for('spell_check')), 302, headers
 
     except Exception as e:
         r = CreateResponse(str(e), 500)
@@ -241,3 +245,47 @@ def CreateResponse(resp, status_code = None):
     r.headers["X-XSS-Protection"] = "1; mode=block"
 
     return r
+
+@app.route('/history', methods=['GET'])
+def history():
+    if len(app_user) == 0:
+        return redirect(url_for('login')), 302, headers
+
+    try:
+        form = app_forms.HistoryForm(request.form)
+        if app_user[0].uname == 'admin':
+            results = dbsession.query(db_classes.SpellCheckResults).all()
+        else:    
+            results = dbsession.query(db_classes.SpellCheckResults).filter(db_classes.SpellCheckResults.user_id == app_user[0].id).all()
+        form.total_queries.data = len(results)
+    except Exception as e:
+        r = CreateResponse(str(e), 500)
+         
+        return r
+    
+    r = CreateResponse(render_template('history.html', form=form, results=results))
+    
+    return r
+
+
+@app.route('/history/query<int:id>', methods=['GET'])
+def historyquery(id):
+    if len(app_user) == 0:
+        return redirect(url_for('login')), 302, headers
+    
+    result = dbsession.query(db_classes.SpellCheckResults).filter(db_classes.SpellCheckResults.id == id).first()
+    
+    if not result or (app_user[0].uname != 'admin' and app_user[0].id != result.user_id):
+        flash('No results', 'result')
+        return redirect(url_for('history')), 302, headers
+
+    form = app_forms.HistoryQueryForm(request.form)
+    form.query_id.data = id
+    form.uname.data = result.user.uname
+    form.inputtext.data = result.input
+    form.outputtext.data = result.output
+
+    r = CreateResponse(render_template('historyquery.html', form=form))
+    
+    return r
+    

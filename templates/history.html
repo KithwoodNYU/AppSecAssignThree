@@ -1,0 +1,25 @@
+{% extends "layout.html" %}
+{% block title %}
+Query Results
+{% endblock %}
+{% block content %}
+    <h4>Query Results</h4>
+    <br>
+    {% from "_formhelpers.html" import render_field %}
+    <form >
+        {{ form.csrf_token }}
+        <dl>
+            {{render_field(form.total_queries)}}
+        </dl>
+        {% for result in results %}
+           <dl>
+           <a href="/history/query{{result.id}}" id="query{{ result.id }}">{{ result.output }}</a>
+           </dl>
+        {% endfor %}
+    </form>
+    <div>
+    {% if error %}
+        <p class="error"><strong>Error:</strong>{{error}}</p>
+    {% endif %}
+
+{% endblock %}
