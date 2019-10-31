@@ -6,13 +6,10 @@ class RegistrationForm(FlaskForm):
     password = PasswordField('Password', validators=[validators.Length(min=8, max=25), validators.DataRequired()], id='pword')
     phone2fa = StringField('Two factor phone number', id='2fa')
 
-
-
 class LoginForm(FlaskForm):
     username = StringField('Username', validators=[validators.DataRequired()], id='uname')
     password = PasswordField('Password', validators=[validators.DataRequired()], id='pword')
     phone2fa = StringField('Two factor phone number', id='2fa')
-
 
 class SpellCheckForm(FlaskForm):
     inputtext = TextAreaField('Input Text', validators=[validators.DataRequired()], id='inputtext')
@@ -33,6 +30,10 @@ class HistoryQueryForm(FlaskForm):
     uname = StringField('Username', render_kw={'readonly': True}, id='username')
     inputtext = TextAreaField('Input Text', id='querytext')
     outputtext = TextAreaField('Misspelled Words', id='queryresults')
+
+class LoginHistoryForm(FlaskForm):
+    user_id = IntegerField('User ID', id='userid')
+
 
 
     

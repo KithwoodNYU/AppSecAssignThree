@@ -1,0 +1,21 @@
+{% extends "layout.html" %}
+{% block title %}
+Login History
+{% endblock %}
+{% block content %}
+    <h4>Login History</h4>
+    <br>
+    {% from "_formhelpers.html" import render_field %}
+    <form method=post action="/login_history">
+        {{ form.csrf_token }}
+        <dl>
+            {{render_field(form.user_id)}}
+        </dl>
+        <p><input type=submit value=Query></p>
+    </form>
+    <div>
+    {% if error %}
+        <p class="error"><strong>Error:</strong>{{error}}</p>
+    {% endif %}
+
+{% endblock %}

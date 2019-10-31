@@ -2,7 +2,7 @@ from flask import Flask, render_template, redirect, url_for, session, flash, req
 from flask_session import Session
 from flask_wtf import FlaskForm, CSRFProtect
 from wtforms import StringField, PasswordField, validators
-from sqlalchemy import create_engine, Column, Integer, ForeignKey, String, DateTime
+from sqlalchemy import create_engine, Column, Integer, ForeignKey, String, DateTime, func
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 from hashlib import sha256
@@ -118,10 +118,10 @@ def login():
 
         if request.method == 'POST' and form.validate_on_submit():
             if len(app_user) > 0:
-                history_record = dbsession.query.filter(db_classes.LoginRecord.user_id == app_user[0].user_id).last()
+                history_record = dbsession.query(db_classes.LoginRecord).filter(db_classes.LoginRecord.user_id == app_user[0].id).order_by(db_classes.LoginRecord.id.desc()).first()
                 if history_record:
                     history_record.logout_time = datetime.now()
-                    dbsession.update(history_record)
+                    dbsession.add(history_record)
                     dbsession.commit()
                 app_user.clear()
 
@@ -296,3 +296,31 @@ def historyquery(id):
     
     return r
     
+@app.route('/login_history', methods=['GET','POST'])
+def login_history():
+    if len(app_user) == 0 or app_user[0].uname != 'admin':
+        return redirect(url_for('login')), 302, headers
+
+    form = app_forms.LoginHistoryForm(request.form)
+    try:
+        if request.method == 'POST' and form.validate_on_submit():
+            userqid = form.user_id.data
+            results = dbsession.query(db_classes.LoginRecord).filter(db_classes.LoginRecord.user_id == userqid).all()
+            for result in results:
+                flash(f'logged in:{result.login_time}', f'login{result.id}')
+                lo_str = 'N/A'
+                if result.logout_time:
+                    lo_str = f'{result.logout_time}'
+                flash(f'logged out:{lo_str}', f'logout{result.id}')
+
+            r = CreateResponse(render_template('loginhistory.html', form=form))
+            return r
+
+    except Exception as e:
+        r = CreateResponse(str(e), 500)
+         
+        return r
+    
+    r = CreateResponse(render_template('loginhistory.html', form=form))
+
+    return r
