@@ -11,6 +11,15 @@ def client():
     with app.test_client() as client:
         yield client
 
+
+# def db(app):
+#     from demo import db
+#     with app.app_context():
+#         db.create_all()
+#         yield db
+#         db.drop_all()
+#         db.session.commit()
+
 def test_registration(client):
     response = client.get('/register')
     #print(response.data)
@@ -59,6 +68,7 @@ def test_login(client):
     assert b"success" in response.data
 
 def test_spellcheck(client):
+    test_login(client) # have to login first
     response = client.get('/spell_check')
     assert response.status_code == 200
     assert b"Input Text" in response.data

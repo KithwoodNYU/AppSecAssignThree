@@ -7,7 +7,7 @@ Query Information
     <br>
     {% from "_formhelpers.html" import render_field %}
     <form >
-        {{ form.csrf_token }}
+            {{ form.csrf_token }}
         <dl>
             {{render_field(form.query_id)}}
         </dl>

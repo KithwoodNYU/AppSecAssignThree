@@ -22,13 +22,8 @@ from . import db_classes
 app = create_app()
 DBSessionMaker = setup_db()
 dbsession = DBSessionMaker()
-
-SECRET_KEY = os.urandom(32)
-
 csrf = CSRFProtect(app)
 Session(app)
-
-app_user = []
 
 validate_success = 1
 validate_login = 0
@@ -50,8 +45,10 @@ headers = {"Content-Security-Policy":"default-src 'self'",
             "X-XSS-Protection":"1; mode=block"}
 
 @app.route('/')
+@csrf.exempt
 def home():
-    if len(app_user) == 0:
+
+    if 'userid' not in session:
         return redirect(url_for('login')), 302, headers
     else:
         return redirect(url_for('spell_check')), 302, headers
@@ -70,6 +67,7 @@ def get_data():
     return app.send_static_file('data.json')
 
 @app.route('/about')
+@csrf.exempt
 def about():
     r = CreateResponse(render_template('about.html'))
 
@@ -117,13 +115,14 @@ def login():
         form = app_forms.LoginForm(request.form)
 
         if request.method == 'POST' and form.validate_on_submit():
-            if len(app_user) > 0:
-                history_record = dbsession.query(db_classes.LoginRecord).filter(db_classes.LoginRecord.user_id == app_user[0].id).order_by(db_classes.LoginRecord.id.desc()).first()
+            if 'userid' in session:
+                user_id = session['userid']
+                history_record = dbsession.query(db_classes.LoginRecord).filter(db_classes.LoginRecord.user_id == user_id).order_by(db_classes.LoginRecord.id.desc()).first()
                 if history_record:
                     history_record.logout_time = datetime.now()
                     dbsession.add(history_record)
                     dbsession.commit()
-                app_user.clear()
+                session.clear()
 
             name = form.username.data
             pword = form.password.data
@@ -132,7 +131,8 @@ def login():
             validation, user_r = validate_user(name, pword, phone2fa)
 
             if validation == validate_success:
-                app_user.append(user_r)
+                session['userid'] = user_r.id
+                session['username'] = user_r.uname
                 history_record = db_classes.LoginRecord(user_id = user_r.id, login_time=datetime.now())
                 dbsession.add(history_record)
                 dbsession.commit()
@@ -171,7 +171,7 @@ def validate_user(uname, pword, phone2fa):
 
 @app.route('/spell_check', methods=['GET', 'POST'])
 def spell_check():
-    if len(app_user) == 0:
+    if 'userid' not in session:
         return redirect(url_for('login')), 302, headers
 
     try:
@@ -194,7 +194,7 @@ def spell_check():
             scresults = db_classes.SpellCheckResults()
             scresults.input = form.inputtext.data
             scresults.output = msg
-            scresults.user_id = app_user[0].id
+            scresults.user_id = session['userid']
             dbsession.add(scresults)
             dbsession.commit()
             sc_form.misspelled.data = msg
@@ -213,7 +213,7 @@ def spell_check():
 
 @app.route('/sc_results', methods=['GET'])
 def sc_results():
-    if len(app_user) == 0:
+    if 'userid' not in session:
         return redirect(url_for('login')), 302, headers
 
     try:
@@ -255,15 +255,15 @@ def CreateResponse(resp, status_code = None):
 
 @app.route('/history', methods=['GET'])
 def history():
-    if len(app_user) == 0:
+    if 'userid' not in session:
         return redirect(url_for('login')), 302, headers
 
     try:
         form = app_forms.HistoryForm(request.form)
-        if app_user[0].uname == 'admin':
+        if session['username'] == 'admin':
             results = dbsession.query(db_classes.SpellCheckResults).all()
         else:    
-            results = dbsession.query(db_classes.SpellCheckResults).filter(db_classes.SpellCheckResults.user_id == app_user[0].id).all()
+            results = dbsession.query(db_classes.SpellCheckResults).filter(db_classes.SpellCheckResults.user_id == session['userid']).all()
         form.total_queries.data = len(results)
     except Exception as e:
         r = CreateResponse(str(e), 500)
@@ -277,12 +277,12 @@ def history():
 
 @app.route('/history/query<int:id>', methods=['GET'])
 def historyquery(id):
-    if len(app_user) == 0:
+    if 'userid' not in session:
         return redirect(url_for('login')), 302, headers
     
     result = dbsession.query(db_classes.SpellCheckResults).filter(db_classes.SpellCheckResults.id == id).first()
     
-    if not result or (app_user[0].uname != 'admin' and app_user[0].id != result.user_id):
+    if not result or (session['username'] != 'admin' and session['userid'] != result.user_id):
         flash('No results', 'result')
         return redirect(url_for('history')), 302, headers
 
@@ -298,7 +298,7 @@ def historyquery(id):
     
 @app.route('/login_history', methods=['GET','POST'])
 def login_history():
-    if len(app_user) == 0 or app_user[0].uname != 'admin':
+    if 'userid' not in session or session['username'] != 'admin':
         return redirect(url_for('login')), 302, headers
 
     form = app_forms.LoginHistoryForm(request.form)
