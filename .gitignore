@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 flask_session/
+tests/__pycache__/
 
 # C extensions
 *.so
