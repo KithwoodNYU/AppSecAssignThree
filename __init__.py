@@ -17,9 +17,9 @@ def create_app():
     flask_app.config['SESSION_TYPE'] = 'filesystem'
     #remove SESSION_COOKIE_SECURE to test using in private browsing
     
-    flask_app.config['SESSION_COOKIE_SECURE'] = True
-    flask_app.config['SESSION_COOKIE_HTTPONLY'] = True
-    flask_app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    #flask_app.config['SESSION_COOKIE_SECURE'] = True
+    #flask_app.config['SESSION_COOKIE_HTTPONLY'] = True
+    #flask_app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     flask_app.app_context().push()
     
     return flask_app
